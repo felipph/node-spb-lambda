@@ -1,0 +1,13 @@
+version: '3.8'
+services:
+  localstack:
+    container_name: localstack-lambda
+    image: localstack/localstack
+    ports:
+      - "4566-4599:4566-4599"
+    environment:
+      - SERVICES=s3,lambda,logs
+      - DEBUG=1
+    volumes:
+      - ./init-aws:/docker-entrypoint-initaws.d
+      - ./lambda-spb-src:/tmp/lambda-spb-src
