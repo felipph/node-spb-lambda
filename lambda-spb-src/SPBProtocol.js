@@ -6,6 +6,8 @@ const zlib = require("zlib");
 
 const fs = require('fs');
 
+const crypto = require('crypto')
+
 
 
 module.exports = class SPBProtocol {
@@ -167,7 +169,6 @@ module.exports = class SPBProtocol {
         decipher.start({iv: iv});
 
         var bufferData = forge.util.createBuffer(content.buffer);
-        console.log(bufferData);
 
         decipher.update(bufferData);
         var result = decipher.finish(); // check 'result' for true/false
@@ -176,6 +177,18 @@ module.exports = class SPBProtocol {
         } else {
             console.log("Deu ruim =/");
         }
+        let buffKey = Buffer.from(chaveAberta, 'binary')
+
+        const decipher2 = crypto.createDecipheriv('des-ede3', buffKey, null)
+        decipher2.setAutoPadding(false)
+        let decrypted = decipher2.update(content, 'binary', 'utf8')
+        decrypted += decipher2.final('utf8')
+        
+        console.log('decrypted: ' + decrypted)
+
+        fs.writeFileSync( '../resp2-js.gz', decrypted, {encoding: 'binary'});
+
+        
 
 
 
