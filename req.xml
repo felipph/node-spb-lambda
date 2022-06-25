@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<ADDADOC xmlns="http://www.bcb.gov.br/ARQ/AGEN001.xsd">
+    <BCARQ>
+        <NomArq>AGEN001_92894922_20210201_00021</NomArq>
+        <NumCtrlEmis>20210201000000024460</NumCtrlEmis>
+        <ISPBEmissor>17423302</ISPBEmissor>
+        <ISPBDestinatario>92894922</ISPBDestinatario>
+        <DtHrDDA>2021-02-01T15:04:27</DtHrDDA>
+        <IndrFlagFim>N</IndrFlagFim>
+        <DtMovto>2021-02-01</DtMovto>
+    </BCARQ>    	   <SISARQ>
+    	   <AGEN001>
+        		<ISPBEmissor>17423302</ISPBEmissor>
+        		<ISPBDestinatario>92894922</ISPBDestinatario>
+        		<MsgECO>AGEN001 from 17423302 to 92894922</MsgECO>
+    	   </AGEN001>
+    </SISARQ></ADDADOC>

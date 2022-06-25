@@ -7,13 +7,6 @@ const s3 = new AWS.S3({
     s3ForcePathStyle: true,
 });
 
-spbEncript = function(partyOrigin, partDest, data) {
-    var buffer = Buffer.from([0]);
-
-
-    return buffer;
-};
-
 exports.handler = async (event, context, callback) => {
     // Get the object from the event and show its content type
     const bucket = event.Records[0].s3.bucket.name;

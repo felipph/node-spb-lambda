@@ -2,13 +2,13 @@ const forge = require('node-forge');
 
 const FileUtils = require('./utils/FileUtils.js');
 
-const zlib = require("zlib");
+const admzip = require("adm-zip");
 
 const fs = require('fs');
 
 const crypto = require('crypto')
 
-
+const cryptojs = require('crypto-js')
 
 module.exports = class SPBProtocol {
 
@@ -56,7 +56,7 @@ module.exports = class SPBProtocol {
     }
 
 
-    signAndEncrypt() {
+    signAndEncrypt(filePath) {
         var buff = Buffer.alloc(this.HEADER_SIZE)
         buff.writeIntBE(this.HEADER_SIZE, 0, 2)
         var offset = 3;
@@ -75,23 +75,23 @@ module.exports = class SPBProtocol {
         buff.write(this.getOrigSerial(), offset++, 32); // C13 - signature Certificate Serial Number - Local
         offset = offset + 32;
 
+        
+        var xml = this.fileUtils.getFile(filePath);
 
-        // console.log(this.certOrigem);
-        var md = forge.md.sha1.create();
-        var xml = this.fileUtils.getFile("../agen.xml");
-        var conteudo = zlib.gzipSync(xml)
+        var zip = new admzip();
+
+        zip.addFile('req.xml',xml,'utf8');
+
+        var conteudo =  zip.toBuffer();
+        fs.createWriteStream('../req.gz').write(conteudo);
 
         // console.log('Conteudo Aberto: ' + conteudo.toString('hex'));
-
+        var md = forge.md.sha256.create();
         md.update(conteudo, 'binary');
         var signature = this.privateKeyOrigem.key.sign(md);
 
         var keyDESede = this.generate3DESKey()
-        var encryptedKey = this.certOrigem.cert.publicKey.encrypt(keyDESede);
-
-        // console.log("KEY: " + Buffer.from(forge.util.createBuffer(encryptedKey).getBytes(this.BUFFER_SIZE)).toString('hex'));
-
-        // console.log("Signature: " + Buffer.from(forge.util.createBuffer(signature).getBytes()).toString('hex'));
+        var encryptedKey = this.certOrigem.cert.publicKey.encrypt(keyDESede.toString('binary'));
 
         buff.write(encryptedKey, offset++, this.BUFFER_SIZE); // C14 - encryptedSymmetricKey
         offset = offset + this.BUFFER_SIZE;
@@ -100,7 +100,7 @@ module.exports = class SPBProtocol {
 
 
         var cipher   = forge.cipher.createCipher('3DES-CBC', keyDESede);
-        cipher.start({iv:forge.random.getBytesSync(8)});
+        cipher.start({iv:keyDESede.slice(0,8)});
         cipher.update(forge.util.createBuffer(conteudo, 'utf-8'));
         cipher.finish();
         var encrypted = Buffer.from(cipher.output.getBytes());
@@ -129,6 +129,7 @@ module.exports = class SPBProtocol {
     }
 
     verifySignDecrypt(filePath){
+        
         var arquivo = fs.readFileSync(filePath);
         var buffer = Buffer.from(arquivo);
         var offset = 2;
@@ -159,44 +160,41 @@ module.exports = class SPBProtocol {
 
         var content = buffer.slice(this.HEADER_SIZE);
 
-        var chaveAberta = this.privateKeyDest.key.decrypt(chaveSimetricaCriptografada);
+        var chaveAberta = this.privateKeyDest.key.decrypt(chaveSimetricaCriptografada.toString('binary'));     
 
-        console.log('Chave Aberta => ' + chaveAberta);
+        var decrypted = this.decrypt(content,chaveAberta);       
 
-        var iv = forge.random.getBytesSync(8);
-
-        var decipher = forge.cipher.createDecipher('3DES-CBC', chaveAberta);
-        decipher.start({iv: iv});
-
-        var bufferData = forge.util.createBuffer(content.buffer);
-
-        decipher.update(bufferData);
-        var result = decipher.finish(); // check 'result' for true/false
-        if(result) {
-            fs.writeFileSync( '../resp-js.gz', decipher.output.getBytes(), {encoding: 'binary'});
-        } else {
-            console.log("Deu ruim =/");
-        }
-        let buffKey = Buffer.from(chaveAberta, 'binary')
-
-        const decipher2 = crypto.createDecipheriv('des-ede3', buffKey, null)
-        decipher2.setAutoPadding(false)
-        let decrypted = decipher2.update(content, 'binary', 'utf8')
-        decrypted += decipher2.final('utf8')
-        
-        console.log('decrypted: ' + decrypted)
 
         fs.writeFileSync( '../resp2-js.gz', decrypted, {encoding: 'binary'});
 
-        
+        //verificando assinatura
+        console.log(this.getOrigSerial())
+        var md = forge.md.sha256.create();
+        md.update(decrypted, 'binary');
 
+        var verified = this.certOrigem.cert.publicKey.verify(md.digest().getBytes(), assinatura);
+        if(!verified) {
+            throw new Error("Assinatura inválida!");
+        }
+        console.log("Assinatura OK? " + verified);
 
+        var inflatedData;
+        var zip = new admzip(Buffer.from(decrypted));
+        zip.forEach(function (zipEntry) {
+            inflatedData = zipEntry.getData();
+        })
 
+        console.log(inflatedData.toString('utf8'))
 
+    }
 
-
-        console.log('Content: '+ content.buffer);
-
+    decrypt(encryptedBuffer, key) {
+        let buffKey = Buffer.from(key, 'utf-8')        
+        const decipher3des = crypto.createDecipheriv('des-ede3-cbc', buffKey, buffKey.slice(0,8))
+        decipher3des.setAutoPadding(false)
+        let decrypted = decipher3des.update(encryptedBuffer,'binary','binary')
+        decrypted += decipher3des.final('binary')   
+        return decrypted     
     }
 }
 
