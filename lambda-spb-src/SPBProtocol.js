@@ -8,11 +8,12 @@ const fs = require('fs');
 
 const crypto = require('crypto')
 
-const cryptojs = require('crypto-js')
+const zlib = require('zlib')
 
 module.exports = class SPBProtocol {
 
-    HEADER_SIZE = 588;
+    HEADER_SIZE = 76;
+    HEADER_TOTAL_SIZE = 588;
     SERIAL_NUMBER_SIZE = 32;
     STRING_SERIAL_NUMBER_SIZE = 16;
     BUFFER_SIZE = 256;
@@ -58,9 +59,10 @@ module.exports = class SPBProtocol {
 
     signAndEncrypt(filePath) {
         var buff = Buffer.alloc(this.HEADER_SIZE)
-        buff.writeIntBE(this.HEADER_SIZE, 0, 2)
-        var offset = 3;
+        buff.writeIntBE(this.HEADER_TOTAL_SIZE, 0, 2) //C1
+        var offset = 2;
         buff.writeIntBE(2, offset++, 1); // c02 - Protocol Version
+        
         buff.writeIntBE(0, offset++, 1); // c03 - Error Code
         buff.writeIntBE(8, offset++, 1); // c04 - Special Treatment Indicator:
         buff.writeIntBE(0, offset++, 1); // c05 - Reservado
@@ -70,10 +72,10 @@ module.exports = class SPBProtocol {
         buff.writeIntBE(3, offset++, 1); // C09 - hashAlgorithm: 02H: SHA-1, 03H: SHA-256
         buff.writeIntBE(4, offset++, 1); // C10 - destCertCa:
         buff.write(this.getDestSerial(), offset++, 32); // C11 - destination Certificate Serial Number
-        offset = offset + 32;
+        offset = offset + 31;
         buff.writeIntBE(4, offset++, 1); // C12 - signatureCertCa
         buff.write(this.getOrigSerial(), offset++, 32); // C13 - signature Certificate Serial Number - Local
-        offset = offset + 32;
+        offset = offset + 31;
 
         
         var xml = this.fileUtils.getFile(filePath);
@@ -83,27 +85,50 @@ module.exports = class SPBProtocol {
         zip.addFile('req.xml',xml,'utf8');
 
         var conteudo =  zip.toBuffer();
+
+        // fazendo o padding do conteudo...
+
+        var fileLengthBeforePadding = conteudo.length;
+		const PADDING_LENGTH = 8;
+		
+		var paddingLength = PADDING_LENGTH - (fileLengthBeforePadding % PADDING_LENGTH);
+        if (paddingLength == PADDING_LENGTH) {
+            paddingLength = 0;
+        }
+        
+        //Se for necessário fazer padding
+        // if(paddingLength != 0) {
+        //     console.log("Padding do arquivo...")
+        //     conteudo = Buffer.concat([Buffer.from(conteudo)], Buffer.alloc(paddingLength))
+        // }
+
         fs.createWriteStream('../req.gz').write(conteudo);
 
-        // console.log('Conteudo Aberto: ' + conteudo.toString('hex'));
+        //ASSINATURA
         var md = forge.md.sha256.create();
         md.update(conteudo, 'binary');
         var signature = this.privateKeyOrigem.key.sign(md);
 
-        var keyDESede = this.generate3DESKey()
-        var encryptedKey = this.certOrigem.cert.publicKey.encrypt(keyDESede.toString('binary'));
+        console.log('Signature: ' + Buffer.from(signature, 'binary').toString('hex'));
 
-        buff.write(encryptedKey, offset++, this.BUFFER_SIZE); // C14 - encryptedSymmetricKey
+        var keyDESede = Buffer.from("ThisIsSpartaThisIsSparta");
+        
+        var encryptedKey = Buffer.from(this.certDestino.cert.publicKey.encrypt(keyDESede),'binary');
+
+        console.log('Chave crypt: ' );
+        console.log(encryptedKey.length);
+        console.log(encryptedKey.toString('hex'));
+        var decryptedKey = this.privateKeyDest.key.decrypt(encryptedKey);
+        
+        console.log('Chave Aberta ' + decryptedKey);
+ 
+
+        buff = Buffer.concat([buff, encryptedKey]); // C14 - encryptedSymmetricKey
         offset = offset + this.BUFFER_SIZE;
 
-        buff.write(signature,offset++,this.BUFFER_SIZE)
+        buff = Buffer.concat([buff, Buffer.from(signature,'binary')]);
 
-
-        var cipher   = forge.cipher.createCipher('3DES-CBC', keyDESede);
-        cipher.start({iv:keyDESede.slice(0,8)});
-        cipher.update(forge.util.createBuffer(conteudo, 'utf-8'));
-        cipher.finish();
-        var encrypted = Buffer.from(cipher.output.getBytes());
+        var encrypted = Buffer.from(this.encrypt(conteudo,keyDESede));
         // console.log('Header: '+ buff.toString('hex'));
 
         // console.log('Content: '+ encrypted.toString('hex'));
@@ -129,6 +154,8 @@ module.exports = class SPBProtocol {
     }
 
     verifySignDecrypt(filePath){
+
+        console.log("Descriptando!");
         
         var arquivo = fs.readFileSync(filePath);
         var buffer = Buffer.from(arquivo);
@@ -178,13 +205,9 @@ module.exports = class SPBProtocol {
         }
         console.log("Assinatura OK? " + verified);
 
-        var inflatedData;
-        var zip = new admzip(Buffer.from(decrypted));
-        zip.forEach(function (zipEntry) {
-            inflatedData = zipEntry.getData();
-        })
+        var inflatedData = zlib.gunzipSync(Buffer.from(decrypted, 'binary'))
 
-        console.log(inflatedData.toString('utf8'))
+        return inflatedData.toString('utf8');
 
     }
 
@@ -195,6 +218,45 @@ module.exports = class SPBProtocol {
         let decrypted = decipher3des.update(encryptedBuffer,'binary','binary')
         decrypted += decipher3des.final('binary')   
         return decrypted     
+    }
+
+    encrypt(openBuffer, key) {
+
+        const PADDING_LENGTH = 8;
+		
+		var paddingLength = PADDING_LENGTH - (openBuffer.length % PADDING_LENGTH);
+        if (paddingLength == PADDING_LENGTH) {
+            paddingLength = 0;
+        }
+        
+        // Se for necessário fazer padding
+        if(paddingLength != 0) {
+            console.log("Padding do arquivo...")
+            var padBytes = Buffer.alloc(paddingLength, 0)
+            openBuffer = Buffer.concat([openBuffer, padBytes])
+        }
+
+
+        console.log('Tamanho: '+ openBuffer.length)
+
+        let buffKey = Buffer.from(key, 'utf-8')        
+        const decipher3des = crypto.createCipheriv('des-ede3-cbc', buffKey, buffKey.slice(0,8))
+        decipher3des.setAutoPadding(false)
+        let encrypted = decipher3des.update(openBuffer,'binary','binary')
+        encrypted += decipher3des.final('binary')   
+        return encrypted     
+    }
+
+    bufferToStream(binary) {
+
+        const readableInstanceStream = new Readable({
+          read() {
+            this.push(binary);
+            this.push(null);
+          }
+        });
+    
+        return readableInstanceStream;
     }
 }
 

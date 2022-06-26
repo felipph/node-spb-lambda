@@ -6,13 +6,13 @@ describe("SPBProtocol", () => {
 
     
 
-    // test('Encrypt', () => {
-    //     console.log(spbProtocol.signAndEncrypt("../req.xml"));
-    //     expect(1).toBe(1);
-    // });
+    test('Encrypt', () => {
+        console.log(spbProtocol.signAndEncrypt("../req.xml"));
+        expect(1).toBe(1);
+    });
 
     test('Decrypt', () => {
-        console.log(spbProtocol.verifySignDecrypt('../resp.gz.dat'));
+        console.log(spbProtocol.verifySignDecrypt('../req.gz.dat'));
         expect(1).toBe(1);
     });
 
