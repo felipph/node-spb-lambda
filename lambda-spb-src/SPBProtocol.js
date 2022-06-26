@@ -1,5 +1,8 @@
 const forge = require('node-forge');
 
+const {util: {binary: {raw}}} = forge;
+const {pki} = forge;
+
 const FileUtils = require('./utils/FileUtils.js');
 
 const fs = require('fs');
@@ -79,15 +82,19 @@ module.exports = class SPBProtocol {
         var xml = this.fileUtils.getFile(filePath);
 
         var xmlZipped = zlib.gzipSync(xml)
-
+        xmlZipped = this.paddArquivo(xmlZipped);
+       
         fs.createWriteStream('../req.gz').write(xmlZipped);
+        
+        //assinatura        
+        var privateKeyPEM = pki.privateKeyToPem(this.privateKeyOrigem.key)
+        var signature = crypto.sign("SHA256", Buffer.from(xmlZipped,'binary') , privateKeyPEM);
+        // var verified = this.certOrigem.cert.publicKey.verify(md.digest().bytes(), signature);
 
-        //ASSINATURA
-        var md = forge.md.sha256.create();
-        md.update(xmlZipped, 'binary');
-        var signature = this.privateKeyOrigem.key.sign(md);
-
-        console.log('Signature: ' + Buffer.from(signature, 'binary').toString('hex'));
+        // console.log('Check Assinatura: '+ verified)
+        
+        
+        console.log('Signature: ' + signature.toString('hex'));
 
         var keyDESede = Buffer.from("ThisIsSpartaThisIsSparta");
         
@@ -102,11 +109,10 @@ module.exports = class SPBProtocol {
  
 
         buff = Buffer.concat([buff, encryptedKey]); // C14 - encryptedSymmetricKey
-        offset = offset + this.BUFFER_SIZE;
-
+      
         buff = Buffer.concat([buff, signature]);
 
-        var encrypted = Buffer.from(this.encrypt(Buffer.from(xmlZipped,'binary'), keyDESede),'binary');
+        var encrypted = Buffer.from(this.encrypt(Buffer.from(xmlZipped,'binary'), keyDESede), 'binary');
         // console.log('Header: '+ buff.toString('hex'));
 
          console.log('Content: '+ encrypted.toString('hex'));
@@ -116,7 +122,6 @@ module.exports = class SPBProtocol {
         const finalBuff = Buffer.concat(byteArr);
 
         fs.createWriteStream('../req.gz.dat').write(finalBuff);
-
         return finalBuff;
     }
 
@@ -205,8 +210,8 @@ module.exports = class SPBProtocol {
         return decrypted     
     }
 
-    encrypt(openBuffer, key) {
 
+    paddArquivo(openBuffer){
         const PADDING_LENGTH = 8;
 		
 		var paddingLength = PADDING_LENGTH - (openBuffer.length % PADDING_LENGTH);
@@ -220,7 +225,11 @@ module.exports = class SPBProtocol {
             var padBytes = Buffer.alloc(paddingLength, 0)
             openBuffer = Buffer.concat([openBuffer, padBytes])
         }
+        return openBuffer
 
+    }
+
+    encrypt(openBuffer, key) {
         let buffKey = Buffer.from(key, 'utf-8')        
         const decipher3des = crypto.createCipheriv('des-ede3-cbc', buffKey, buffKey.slice(0,8))
         decipher3des.setAutoPadding(false)
