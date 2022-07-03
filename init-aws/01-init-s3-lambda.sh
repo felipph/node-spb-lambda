@@ -16,17 +16,20 @@ export BUCKET_NAME=bucket-teste
 
 echo "########### Create S3 bucket ###########"
 aws --endpoint-url=http://localhost:4566 s3api create-bucket\
-    --bucket $BUCKET_NAME
+    --bucket $BUCKET_NAME --profile=localstack
 
 echo "########### List S3 bucket ###########"
 aws --endpoint-url=http://localhost:4566 s3api list-buckets
 
+cd /tmp/lambda-spb-ts-src/dist
+zip -r function.zip .
+
 
 aws --endpoint-url=http://localhost:4566 \
     lambda create-function --function-name spb-lambda \
-     --zip-file fileb:///tmp/lambda-spb-src/function.zip \
-     --handler index.handler --runtime nodejs12.x \
-     --role arn:aws:iam::000000000000:role/lambda-role
+     --zip-file fileb:///tmp/lambda-spb-ts-src/dist/function.zip \
+     --handler index.lambdaHandler --runtime nodejs12.x \
+     --role arn:aws:iam::000000000000:role/lambda-role --profile=localstack
 
 
 

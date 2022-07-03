@@ -1,6 +1,5 @@
 #!/bin/bash
-cd lambda-spb-src
-npm install
-zip -r function.zip .
-
+cd lambda-spb-ts-src
+npm run build
+cd ..
 docker compose up

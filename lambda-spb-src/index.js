@@ -1,6 +1,7 @@
 'use strict'
 const AWS = require('aws-sdk');
 const zlib = require("zlib");
+const SPBProtocol = require("./SPBProtocol.js");
 
 const s3 = new AWS.S3({ 
     endpoint: `http://localhost:4566`, 
@@ -25,8 +26,7 @@ exports.handler = async (event, context, callback) => {
                     if(err) {
                         console.log(err)
                     } else { 
-                        console.log("gzip:");
-                        console.log(buffer.toString('base64'));
+                        var spb = new SPBProtocol();
                     }
                 })
 

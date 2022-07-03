@@ -11,3 +11,4 @@ services:
     volumes:
       - ./init-aws:/docker-entrypoint-initaws.d
       - ./lambda-spb-src:/tmp/lambda-spb-src
+      - ./lambda-spb-ts-src:/tmp/lambda-spb-ts-src
