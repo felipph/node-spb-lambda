@@ -19,7 +19,9 @@
   "dependencies": {
     "@types/aws-lambda": "^8.10.101",
     "aws-sdk": "^2.1167.0",
+    "cryptian": "^0.0.5",
     "fs": "^0.0.1-security",
+    "gunzip-stream": "^1.0.1",
     "ts-node-dev": "^2.0.0"
   }
 }

@@ -1,5 +1,10 @@
 # node-spb-lambda
 
+## colocar Um arquivo no S3
+
+```bash
+ awslocal s3api put-object --bucket bucket-teste --key req.gz.dat --body req.gz.dat
+ ```
 
 Alguns links para ajuda:
 
