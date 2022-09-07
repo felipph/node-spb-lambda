@@ -12,11 +12,16 @@ echo "########### Setting default profile ###########"
 export AWS_DEFAULT_PROFILE=localstack
 
 echo "########### Setting S3 name as env variables ###########"
-export BUCKET_NAME=bucket-teste
+export BUCKET_SRC=bucket-entrada
+export BUCKET_DEST=bucket-saida
 
-echo "########### Create S3 bucket ###########"
+echo "########### Create S3 bucket ORIGEM ###########"
 aws --endpoint-url=http://localhost:4566 s3api create-bucket\
-    --bucket $BUCKET_NAME --profile=localstack
+    --bucket $BUCKET_SRC --profile=localstack
+
+echo "########### Create S3 bucket DESTINO ###########"
+aws --endpoint-url=http://localhost:4566 s3api create-bucket\
+    --bucket $BUCKET_DEST --profile=localstack
 
 echo "########### List S3 bucket ###########"
 aws --endpoint-url=http://localhost:4566 s3api list-buckets
@@ -28,14 +33,14 @@ zip -r function.zip .
 aws --endpoint-url=http://localhost:4566 \
     lambda create-function --function-name spb-lambda \
      --zip-file fileb:///tmp/lambda-spb-ts-src/dist/function.zip \
-     --handler index.lambdaHandler --runtime nodejs12.x \
-     --role arn:aws:iam::000000000000:role/lambda-role --profile=localstack
-
+     --handler index.lambdaHandler --runtime nodejs16.x \
+     --role arn:aws:iam::000000000000:role/lambda-role --profile=localstack \
+     --environment "Variables={BUCKET_DEST=$BUCKET_DEST}"   
 
 
 echo "########### Set S3 bucket notification configurations ###########"
 aws --endpoint-url=http://localhost:4566 s3api put-bucket-notification-configuration\
-    --bucket $BUCKET_NAME\
+    --bucket $BUCKET_SRC\
     --notification-configuration  '{
                                         "LambdaFunctionConfigurations": [
                                             {
@@ -48,4 +53,4 @@ aws --endpoint-url=http://localhost:4566 s3api put-bucket-notification-configura
 
 echo "########### Get S3 bucket notification configurations ###########"
 aws --endpoint-url=http://localhost:4566 s3api get-bucket-notification-configuration\
-    --bucket $BUCKET_NAME
+    --bucket $BUCKET_SRC

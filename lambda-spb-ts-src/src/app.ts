@@ -7,26 +7,20 @@ import {S3Event} from "aws-lambda";
 import * as AWS from "aws-sdk";
 import { PassThrough } from 'node:stream';
 import * as zlib from "zlib"
-
+import { SignatureVerifierStream } from './service/crypt/SignatureVerifierStream';
+import * as crypto from "crypto"
 const s3 = new AWS.S3(
-    // {
-    //     endpoint: `http://${process.env.LOCALSTACK_HOSTNAME}:${process.env.EDGE_PORT}`, 
-    //     accessKeyId: process.env['AWS_REGION'],
-    //     secretAccessKey: process.env['AWS_ACCESS_KEY_ID'],
-    //     region:  process.env['AWS_SECRET_ACCESS_KEY'],
-    //     s3ForcePathStyle: true       
-    // }
+    {
+        endpoint: `http://${process.env.LOCALSTACK_HOSTNAME}:${process.env.EDGE_PORT}`,
+        accessKeyId: process.env['AWS_ACCESS_KEY_ID'],
+        secretAccessKey: process.env['AWS_SECRET_ACCESS_KEY'],
+        region:  process.env['AWS_REGION'],
+        s3ForcePathStyle: true       
+    }
 );   
 const {createGunzip} = require('gunzip-stream');
-exports.handler = async function (event:S3Event, context:any) {
-    const uploadStream = (opts:any) => {
-        const s3 = new AWS.S3();
-        const pass = new PassThrough();
-        return {
-          writeStream: pass,
-          promise: s3.upload({ Bucket:opts.bucket, Key:opts.key, Body: pass }).promise(),
-        };
-      }
+exports.lambdaHandler = async function (event:S3Event, context:any) {
+    
 
 
     console.log("AQUI EU!");
@@ -48,21 +42,26 @@ exports.handler = async function (event:S3Event, context:any) {
         }
     }).promise();    
 
-    console.log("ENVIRONMENT VARIABLES\n" + JSON.stringify(process.env, null, 2))
-    console.info("EVENT\n" + JSON.stringify(event, null, 2))
-    console.warn("Event not processed.")
-    console.info("CONTENT: " + headerSPB.toString("hex"));
-    console.info("LENGTH: "  + headerSPB.length);
+    // console.log("ENVIRONMENT VARIABLES\n" + JSON.stringify(process.env, null, 2))
+    // console.info("EVENT\n" + JSON.stringify(event, null, 2))
+    // console.warn("Event not processed.")
+    // console.info("CONTENT: " + headerSPB.toString("hex"));
+    // console.info("LENGTH: "  + headerSPB.length);
 
 
     var header = new SPBHeader(Buffer.from(headerSPB,0,SPBHeader.getHeaderSize()));
     console.log(header);
     
     var privateKey = fs.readFileSync("./certDestino/privateKeyDestino.pem");
+    var publicKey = fs.readFileSync("./certOrigem/publicKeyOrigem.pem");
     
     var protocol = new SPBProtocolV2(header)
     console.log("Chave Simétrica: " + protocol.decryptSymetricKey(privateKey))
 
+
+    /**
+     * MODO para enviar diretamente para o S3 de destino
+     */
     //Obtendo o restante e decriptando
 
     var decryptStream = new DecryptStream({
@@ -71,7 +70,22 @@ exports.handler = async function (event:S3Event, context:any) {
         iv: protocol.iv
     });
 
-    const { writeStream, promise } = uploadStream({bucket: process.env['BUCKET_DEST'], key: key + '.OPEN'});
+    var verifierStream = new SignatureVerifierStream({
+            hashType: 'RSA-SHA256',
+            signatureBuf: header.bufferSignature,
+            publicKey: publicKey
+    });
+
+
+    const uploadStream = (opts:any) => {
+        const pass = new PassThrough();
+        return {
+          writeStream: pass,
+          promise: s3.upload({ Bucket:opts.bucket, Key:opts.key, Body: pass }).promise(),
+        };
+      }
+
+    const { writeStream, promise: uploadS3Promise } = uploadStream({bucket: process.env['BUCKET_DEST'], key: key + '.OPEN'});
 
     const gunzip = zlib.createGunzip();
 
@@ -84,19 +98,27 @@ exports.handler = async function (event:S3Event, context:any) {
     .pipe(decryptStream)
     .on('end', () => {
         console.info("Decriptografia completada!")
-    })    
+    })
+    .pipe(verifierStream)
+    .on('end', () => {
+        console.info("Assinatura OK completada!")
+    })
     .pipe(gunzip)
     .pipe(writeStream)
 
-
-    await promise.then(() => {
+    console.log("Status Assinatura: " + verifierStream.getStatus());
+    
+    let sucesso;
+    await uploadS3Promise.then(() => {
         console.log('Arquivo gravado no S3!');
+        sucesso = 'Arquivo gravado no S3!'
       }).catch((err) => {
         console.log('Falha no upload!', err.message);
+        sucesso = 'Falha no upload! ' +  err.message
       });
 
     return {
         statusCode: 200,
-        body: `Recebido: ${key}`
+        body: `Recebido: ${key} -> STATUS: ${sucesso}`
     }
 };
