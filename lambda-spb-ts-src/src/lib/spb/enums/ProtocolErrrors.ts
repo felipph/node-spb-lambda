@@ -1,0 +1,22 @@
+export enum  ProtocolError {
+    EGEN9901 =   'Tamanho do cabeçalho de segurança zerado ou incompatível com os possíveis',
+    EGEN9902 =   'Versão inválida ou incompatível com o tamanho e/ou conexão',
+    EGEN9903 =   'Algoritmo da chave do destinatário inválido ou divergente do certificado',
+    EGEN9904 =   'Algoritmo simétrico inválido',
+    EGEN9905 =   'Algoritmo da chave do certificado digital da Instituição inválido ou divergente do certificado',
+    EGEN9906 =   'Algoritmo de "hash" não corresponde ao indicado ou é inválido',
+    EGEN9907 =   'Código da PC do certificado do destinatário inválido',
+    EGEN9908 =   'Número de série do certificado do destinatário inválido (não foi emitido pela AC)',
+    EGEN9909 =   'Código da PC do certificado inválido',
+    EGEN9910 =   'Número de série do certificado digital da Instituição inválido (não foi emitido pela AC)',
+    EGEN9911 =   'Criptograma de autenticação da Mensagem inválido ou com erro',
+    EGEN9912 =   'Certificado não é do emissor da mensagem (titular da fila no MQ)',
+    EGEN9913 =   'Erro na extração da chave simétrica',
+    EGEN9914 =   'Erro gerado pelo algoritmo simétrico',
+    EGEN9915 =   'Tamanho da mensagem não múltiplo de 8 bytes (específico para a segunda versão do Protocolo de Segurança)',
+    EGEN9916 =   'Certificado usado não está ativado',
+    EGEN9917 =   'Certificado usado está vencido ou revogado pela Instituição',
+    EGEN9918 =   'Erro genérico de software da camada de segurança',
+    EGEN9919 =   'Indicação de uso específico inválida ou incompatível',
+    EGEN9920 =   'Certificado inválido (Usar certificado “a ativar” na GEN0006)'
+};

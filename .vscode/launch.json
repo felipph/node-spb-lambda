@@ -1,19 +1,61 @@
 {
     "configurations": [
+        // {
+        //     "type": "aws-sam",
+        //     "request": "direct-invoke",
+        //     "name": "lambda-spb-ts-src:src/app.lambdaHandler (nodejs14.x)",
+        //     "invokeTarget": {
+        //         "target": "code",
+        //         "projectRoot": "${workspaceFolder}/lambda-spb-ts-src",
+        //         "lambdaHandler": "src/app.lambdaHandler"
+        //     },
+        //     "lambda": {
+        //         "runtime": "nodejs14.x",
+        //         "payload": {},
+        //         "environmentVariables": {}
+        //     }
+        // },
         {
-            "type": "aws-sam",
-            "request": "direct-invoke",
-            "name": "lambda-spb-ts-src:src/app.lambdaHandler (nodejs14.x)",
-            "invokeTarget": {
-                "target": "code",
-                "projectRoot": "${workspaceFolder}/lambda-spb-ts-src",
-                "lambdaHandler": "src/app.lambdaHandler"
-            },
-            "lambda": {
-                "runtime": "nodejs14.x",
-                "payload": {},
-                "environmentVariables": {}
-            }
-        }
+            "type": "node",
+            "request": "launch",
+            "name": "Jest single run all tests",
+            "program": "${workspaceRoot}/lambda-spb-ts-src/node_modules/jest/bin/jest.js",
+            "args": [
+              "--verbose",
+              "-i",
+              "--no-cache"
+            ],
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
+          },
+          {
+            "type": "node",
+            "request": "launch",
+            "name": "Jest watch all tests",
+            "program": "${workspaceRoot}/lambda-spb-ts-src/node_modules/jest/bin/jest.js",
+            "args": [
+              "--verbose",
+              "-i",
+              "--no-cache",
+              "--watchAll"
+            ],
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
+          },
+          {
+            "type": "node",
+            "request": "launch",
+            "name": "Jest watch current file",
+            "program": "${workspaceFolder}/lambda-spb-ts-src/node_modules/jest/bin/jest",
+            "args": [
+              "${fileBasename}",
+              "--verbose",
+              "-i",
+              "--no-cache",
+              "--watchAll"
+            ],
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
+          }
     ]
 }

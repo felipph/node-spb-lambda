@@ -1,14 +1,13 @@
 import * as fs from 'fs';
-import { SPBHeader } from './service/spb/model/SPBHeader';
-import { DecryptStream } from './service/crypt/DecryptStream';
-import { SPBProtocolV2 } from './service/spb/impl/SPBProtocolV2';
+import { SPBHeaderDecoder } from './lib/spb/SPBHeaderDecoder';
+import { DecryptStream } from './lib/crypt/DecryptStream';
+import { SPBProtocolV2 } from './lib/spb/SPBProtocolV2';
 
 import {S3Event} from "aws-lambda";
 import * as AWS from "aws-sdk";
 import { PassThrough } from 'node:stream';
 import * as zlib from "zlib"
-import { SignatureVerifierStream } from './service/crypt/SignatureVerifierStream';
-import * as crypto from "crypto"
+import { SignatureVerifierStream } from './lib/crypt/SignatureVerifierStream';
 const s3 = new AWS.S3(
     {
         endpoint: `http://${process.env.LOCALSTACK_HOSTNAME}:${process.env.EDGE_PORT}`,
@@ -18,7 +17,6 @@ const s3 = new AWS.S3(
         s3ForcePathStyle: true       
     }
 );   
-const {createGunzip} = require('gunzip-stream');
 exports.lambdaHandler = async function (event:S3Event, context:any) {
     
 
@@ -49,7 +47,7 @@ exports.lambdaHandler = async function (event:S3Event, context:any) {
     // console.info("LENGTH: "  + headerSPB.length);
 
 
-    var header = new SPBHeader(Buffer.from(headerSPB,0,SPBHeader.getHeaderSize()));
+    var header = new SPBHeaderDecoder(Buffer.from(headerSPB,0,SPBHeaderDecoder.getHeaderSize()));
     console.log(header);
     
     var privateKey = fs.readFileSync("./certDestino/privateKeyDestino.pem");
@@ -89,9 +87,9 @@ exports.lambdaHandler = async function (event:S3Event, context:any) {
 
     const gunzip = zlib.createGunzip();
 
-    console.log("Obtendo o restante : " + SPBHeader.getHeaderSize() + " até "+ (size-1));
+    console.log("Obtendo o restante : " + SPBHeaderDecoder.getHeaderSize() + " até "+ (size-1));
     
-    s3.getObject({ Bucket: bucket, Key: key, Range: "bytes="+SPBHeader.getHeaderSize()+"-" + (size-1)}).createReadStream()
+    s3.getObject({ Bucket: bucket, Key: key, Range: "bytes="+SPBHeaderDecoder.getHeaderSize()+"-" + (size-1)}).createReadStream()
     .on('error' ,(e) => {
         throw new Error("Ocorreu um erro + " + e);        
     })

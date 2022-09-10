@@ -1,5 +1,13 @@
 # node-spb-lambda
 
+## Prerequisites
+```
+npm install -g esbuild
+npm install -g typescript
+npm install -g @types/node
+```
+
+
 ## colocar Um arquivo no S3
 
 ```bash
